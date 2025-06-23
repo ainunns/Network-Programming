@@ -65,8 +65,8 @@ class NullWriter(StringIO):
 if __name__ == '__main__':
     # Run unittest with a custom runner that suppresses output
     # Make sure to uncomment this before uploading the code to domjudge
-    # runner = unittest.TextTestRunner(stream=NullWriter())
-    # unittest.main(testRunner=runner, exit=False)
+    runner = unittest.TextTestRunner(stream=NullWriter())
+    unittest.main(testRunner=runner, exit=False)
 
     # Uncomment this if you want to run the client program, not running the unit test
-    client_program()
+    # client_program()

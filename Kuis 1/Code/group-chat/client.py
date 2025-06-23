@@ -1,9 +1,9 @@
 # client.py
 
 import socket
-import ?
+import select
 import sys
-import ?
+import unittest
 from io import StringIO
 from unittest.mock import patch, MagicMock
 
@@ -14,20 +14,20 @@ class ChatClient:
         self.port = port
 
         # create socket
-        self.client_socket = None
+        self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         # do not forget to encode nickname
         self.nickname = nickname.encode()
 
     def connect(self):
         # connect to server
-        self.client_socket.
+        self.client_socket.connect((self.host, self.port))
 
         # set blocking to False
         self.client_socket.setblocking(False)
 
         # send nickname
-        self.client_socket.send(?)
+        self.client_socket.send(self.nickname)
 
     def main_loop(self):
         while True:
@@ -35,29 +35,29 @@ class ChatClient:
 
     def loop_iteration(self):
         # second element of the sockets_list is the client_socket
-        sockets_list = [sys.stdin, ?]
+        sockets_list = [sys.stdin, self.client_socket]
 
         # use select to check which one is read ready: stdin or client socket
-        read_sockets, _, _ = select.select(?, [], [])
+        read_sockets, _, _ = select.select(sockets_list, [], [])
 
         # check for read-ready socket
-        for ? in ?:
+        for read_ready_socket in read_sockets:
             # if the read-ready socket is the client socket
-            if ? == ?:
+            if read_ready_socket == self.client_socket:
                 # receive message
-                message = ?
+                message = read_ready_socket.recv(1024).decode('utf-8')
 
                 # write message to stdout
-                sys.stdout.write(?)
+                sys.stdout.write(message)
             else:
                 # read message from readline
-                message = sys.stdin.?
+                message = sys.stdin.readline()
 
                 # send message
-                ?
+                self.client_socket.send(message.encode('utf-8'))
 
                 # flush the stdout
-                sys.stdout.?
+                sys.stdout.flush()
 
 
 # A 'null' stream that discards anything written to it

@@ -1,110 +1,110 @@
-import ? 
-import ?
-import ?
+import socket
+import unittest
+import select
 from io import StringIO
 from unittest.mock import MagicMock, patch
 
 # define host and port
-HOST = ?
-PORT = ?
+HOST = '127.0.0.1'
+PORT = 65432
 
 def receive_message(client_socket):
     try:
         # receive message
-        message = ?
+        message = client_socket.recv(1024)
 
         # if no message, then return False
-        if not len(?):
+        if not len(message):
             return False
         
         # if there is a message, then return the message
-        return ?
+        return message
     except:
         return False
 
 def broadcast(message, sender_socket, clients):
     # check each socket in list of client sockets
-    for ? in clients:
+    for sock in clients:
         # if socket is not sender socket, then send the message
         # if socket is the sender socket, then we do not send
-        if ? != sender_socket:
-            ?.send(?)
+        if sock != sender_socket:
+            sock.send(message)
 
 def start_server():
     # create socket
-    server_socket = ?
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # set socket option to reuse address
-    server_socket.?
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     # bind address to server socket
-    ?
+    server_socket.bind((HOST, PORT))
 
     # listen
-    ?
+    server_socket.listen()
 
     # initiate socket list, first element is the server socket
-    sockets_list = ?
+    sockets_list = [server_socket]
     clients = {}
 
-    print(f'Listening for connections on {?}:{?}...')
+    print(f'Listening for connections on {HOST}:{PORT}...')
 
     while True:
         # use select to serve many clients
-        read_sockets, _, _ = ?
+        read_sockets, _, _ = select.select(sockets_list, [], [])
 
         # check for each read-ready socket
-        for ? in ?:
+        for read_ready_socket in read_sockets:
             # if the ready socket is the server socket, then accept connection
-            if ? == ?:
+            if read_ready_socket == server_socket:
                 # accept connection
-                client_socket, client_address = ?
+                client_socket, client_address = server_socket.accept()
 
                 # receive message from client socket
                 # use receive_message function
-                user = ?
+                user = receive_message(client_socket)
                 if user is False:
                     continue
 
                 # append client socket to sockets_list
-                ?
+                sockets_list.append(client_socket)
 
                 # add client socket and user to the clients dictionary
                 # key: client_socket, value: user
-                clients?
-                print('Accepted new connection from {}:{}, nickname: {}'.format(*client_address, ?))    # nickname == user
+                clients[client_socket] = user.decode('utf-8')
+                print('Accepted new connection from {}:{}, nickname: {}'.format(*client_address, user.decode()))    # nickname == user
             else:
                 # receive message from read-ready socket
-                message = receive_message(?)
+                message = receive_message(read_ready_socket)
 
                 # check if message is False
-                if ? is False:
-                    print('Closed connection from: {}'.format(clients[?].decode('utf-8')))
+                if message is False:
+                    print('Closed connection from: {}'.format(clients[read_ready_socket].decode('utf-8')))
 
                     # remove read ready socket from sockets_list
-                    sockets_list.?
+                    sockets_list.remove(read_ready_socket)
 
                     # delete read ready socket from clients dictionary
-                    del ?
+                    del clients[read_ready_socket]
                     continue
 
                 # get user data from the clients dictionary based on the socket 
-                user = clients[?]
+                user = clients[read_ready_socket]
 
                 # fill in the question mark in the following order: user and message. 
                 # do not forget to decode the string
-                print(f'Received message from {?}: {?}')
+                print(f'Received message from {user}: {message}')
                 
                 # Broadcast message with nickname prefixed
                 # full message in the following order: user and message
                 # do not forget to decode the string
                 # in the end of full_message, encode to bytes because we need to send it via socket
-                full_message = f"{?}: {?}".?
+                full_message = f"{user}: {message}".encode('utf-8')
 
                 # first argument = full_message
                 # second argument = the socket ready
                 # third argument = clients dictionary
-                broadcast(?, ?, ?)
+                broadcast(full_message, read_ready_socket, clients)
 
 
 # A 'null' stream that discards anything written to it

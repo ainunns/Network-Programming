@@ -1,141 +1,149 @@
-import ? 
-import ?
-import ?
-import ?
-import ?
+import os
+import socket
+import select
+import unittest
+import sys
 from unittest.mock import patch, MagicMock
 from io import StringIO
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-BUFFER_SIZE = ?
+BUFFER_SIZE = 1024
 
 class Server:
-    def __init__(self, host="?", port=?):
+    def __init__(self, host="127.0.0.1", port=65432):
         # define host and port
-        self.host = ?
-        self.port = ?
+        self.host = host
+        self.port = port
 
         # create socket
-        self.server_socket = ?
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         # set socket option for reuse address
-        ?
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # bind socket
-        ?
+        self.server_socket.bind((self.host, self.port))
 
         # listen
-        ?
+        self.server_socket.listen(5)
 
         # list for select
         # the first element is the server socket
-        self.input_socket = ?
+        self.input_socket = [self.server_socket]
     
     def parse_header(self, header_content):
         # Parse the header and return the file name, size, and content
-        ?
-        header = ?
-        content = ?
+        parts = header_content.split('\r\n\r\n', 1)
+        header = parts[0]
+        content = parts[1] if len(parts) > 1 else ""
         
-        filename = ?
-        filesize = ?
+        # Parse header lines
+        lines = header.split('\r\n')
+        filename = None
+        filesize = None
+        
+        for line in lines:
+            if line.startswith('file-name:'):
+                filename = line.split(':', 1)[1].strip().rstrip(',')
+            elif line.startswith('file-size:'):
+                filesize = int(line.split(':', 1)[1].strip())
         
         return filename, filesize, content 
     
     def receive_file(self, first_chunk, file_path, file_size, sock):
         # Receive the file from the server and save it
-        total_received = ?
-        content_length = ?
+        total_received = 0
+        content_length = len(first_chunk)
             
         with open(file_path, 'wb') as f:
             # check content length
             # write to file if content length > 0
-            if ?:
+            if content_length > 0:
                 # initiate total received data with first content length
-                total_received = ?
+                total_received = content_length
 
                 # write first chunk of data to file
-                ?
+                f.write(first_chunk.encode())
 
             # Receive and save the file
             # while total recived data is less than file size
-            while ? < ?:
+            while total_received < file_size:
                 # receive data
                 # use min(BUFFER_SIZE, file_size - total_received) if necessary
-                chunk = ?
+                chunk = sock.recv(min(BUFFER_SIZE, file_size - total_received))
                 if not chunk:
                     break
 
                 # write chunk to file
-                ?
+                f.write(chunk)
 
                 # total received is equal to total received plus chunk length
-                ?
+                total_received += len(chunk)
             
             print(f"[+] File {file_path} received successfully!")
 
             # Send confirmation to the client
-            sock.?
+            sock.sendall(b"File received successfully")
     
     def start(self):
         print(f"[+] Listening from {self.host}:{self.port}")
         try:
             while True:
                 # use select technique
-                read_ready, _, _ = ?
+                read_ready, _, _ = select.select(self.input_socket, [], [])
                 
-                for ? in read_ready:
+                for read_ready_socket in read_ready:
                     # if socket ready is the server socket
-                    if ? == ?:
+                    if read_ready_socket == self.server_socket:
                         # accept connection
-                        client_socket, client_address = ?
-                        print(f"[+] New client {?} is connected.")
+                        client_socket, client_address = self.server_socket.accept()
+                        print(f"[+] New client {client_socket} is connected.")
 
                         # append client socket to list for select
-                        ?
+                        self.input_socket.append(client_socket)
                     else:
                         try:
                             # Receive command and filename from client
-                            data = ?
+                            data = read_ready_socket.recv(BUFFER_SIZE)
                         except ConnectionResetError:
                             # close socket
-                            ?
+                            read_ready_socket.close()
 
                             # remove socket from list for select
-                            ?
+                            self.input_socket.remove(read_ready_socket)
                             break
 
                         # get command and filename, use split string
-                        command, filename = ?
+                        command, filename = data.decode().strip().split()
                         print(command, filename)
 
                         if command != "upload":
                             # send 'Unknown command'
-                            ?
+                            read_ready_socket.sendall(b"Unknown command. The correct command is: upload file_name")
                             continue
                         
                         elif command == 'upload':
                             # Send acknowledgement to start receiving file
                             # send 'Ready to receive file'
-                            ?
+                            read_ready_socket.sendall(b"Ready to receive file")
 
                             # receive data again
-                            ?
+                            header_data = read_ready_socket.recv(BUFFER_SIZE).decode()
 
                             # parse header, use parse_header method
-                            file_name, file_size, content = ?
-                            file_path = ?
+                            file_name, file_size, content = self.parse_header(header_data)
+                            file_path = os.path.join(BASE_DIR, file_name)
 
                             # receive_file
-                            self.receive_file(?, ?, ?, ?)
+                            self.receive_file(content, file_path, file_size, read_ready_socket)
 
 
         except KeyboardInterrupt:
             # close server socket
-            ?
+            self.server_socket.close()
 
             # sys exit 0
-            ?
+            sys.exit(0)
 
 
 # A 'null' stream that discards anything written to it

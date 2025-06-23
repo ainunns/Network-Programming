@@ -1,8 +1,8 @@
-import socket
+import os
 from unittest.mock import patch, MagicMock
-import ?
-import ?
-import ?
+import socket
+import unittest
+import sys
 from io import StringIO
 
 
@@ -18,25 +18,24 @@ class Client:
     def __init__(self, host, port):
         # 1. Define host and port
         # 2. Create a socket
-        self.host = 'localhost'
-        self.port = 65432
-        self.socket = None
+        self.host = host
+        self.port = port
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
     def connect(self):
         # 3. Connect to the server
-        print(f"Connecting to {self.host}:{self.port}")        
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(f"Connecting to {self.host}:{self.port}")
         self.socket.connect((self.host, self.port))
     
     def send_message(self, message):
         # 4. Send a message to the server
         # 5. Receive a response from the server and return it
-        self.socket.send(message)
+        self.socket.send(message.encode())
         return self.socket.recv(1024)
     
     def sendall(self, data):
         # 6. socket sendall 
-        self.socket.sendall(bytes(data))
+        self.socket.sendall(data)
 
     def disconnect(self):
         # 7. Close the connection
@@ -45,42 +44,45 @@ class Client:
 
 def start_client():
     # 1. Create a Client object
-    client = Client()
+    client = Client('localhost', 65432)
     # 2. Connect to the server
     client.connect()
 
     # 3. Send a message to the server and receive a response
-    message = input("Enter a message: ")
+    message = input()
+    response = client.send_message(message)
+    status = response.decode().strip()
 
     # check for valid command
-    if ? != 'upload':
+    parts = message.split()
+    if len(parts) != 2 or parts[0] != 'upload':
         print('Unknown command. The correct command is: upload file_name')
         # sys exit 1
-        ?
+        sys.exit(1)
 
     else:
         # send message (use send_message method)
-        status = ?
+        response = client.send_message(message)
+        print(response.decode().strip())
 
         # get filename from message
-        filename = ?
-        print(status)
+        command, filename = parts
 
         # Send the header to the client
         # get file content
-        file_content = ?
+        file_content = files[filename]
 
         # get content size
-        filesize = ?
+        filesize = len(file_content) if file_content else 0
 
         # make header, please refer to unit test for header format
-        header = ?
+        header = f"file-name: {filename},\r\nfile-size: {filesize}\r\n\r\n".encode()
 
         # Send BOTH the header AND file content to the client
-        client.?
+        client.sendall(header + file_content.encode() if file_content else b'')
 
         # close socket
-        ?
+        client.disconnect()
 
 
 # A 'null' stream that discards anything written to it
