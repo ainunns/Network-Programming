@@ -1,44 +1,52 @@
-import ?
+import json
+import socket
+import unittest
+from unittest.mock import patch, MagicMock
+from io import StringIO
+from datetime import datetime
+import sys
 
 class Message:
-    def __init__(self, ?, ?, timestamp=None):
-        self.username = ?
-        self.text = ?
-        self.timestamp = ?
+    def __init__(self, username, text, timestamp=None):
+        self.username = username
+        self.text = text
+        self.timestamp = timestamp
 
     def serialize(self):
         # Create a dictionary with the message data and serialize it into a JSON string using the json module.
-        ?
+        message_dict = {
+            "username": self.username,
+            "text": self.text,
+            "timestamp": self.timestamp
+        }
 
-        return ?
+        return json.dumps(message_dict)
 
     @staticmethod
     def deserialize(serialized_message):
         # Parse the JSON string back into a Python dictionary.
-        data = ?
+        data = json.loads(serialized_message)
 
         # Create a new Message object using the data from the dictionary.
-        message = ?
+        message = Message(data["username"], data["text"], data["timestamp"])
 
-        return ?
+        return message
 
 def main():
-    username = input(?)
-    text = input(?)
+    username = input("Enter your username: ")
+    text = input("Enter your message: ")
 
-    message = ?
-    serialized_message = ?
+    message = Message(username, text)
+    serialized_message = message.serialize()
 
     # Create a TCP socket.
-    with (?):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         try:
             # Connect to the server
-            ?
+            sock.connect(("localhost", 12345))
 
             # Send the serialized message to the server.
-            ?
-            
-            print(?)
+            sock.sendall(serialized_message.encode("utf-8"))
         except ConnectionRefusedError:
             print("Connection failed. Is the server running?")
 

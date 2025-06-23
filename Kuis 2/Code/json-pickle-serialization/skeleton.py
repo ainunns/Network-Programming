@@ -1,25 +1,25 @@
-import ?
-import ?
-import ?
-import ?
+import http.client
+import pickle
+import json
+import unittest
 from unittest.mock import patch, MagicMock
 from io import StringIO
-import ?
+import sys
 
 
 def http_pickle():
-    conn = ?
-    path = ?
-    try:
+    conn = http.client.HTTPSConnection("picsum.photos")
+    path = "/id/216/info"
+    try:    
         # send GET request
-        conn.?
+        conn.request("GET", path)
         # get response
-        response = ?
+        response = conn.getresponse()
         # read the response
-        if response.status == ?:
-            data = ?
-            data_serialized = ?
-            return ?
+        if response.status == 200:
+            data = response.read()
+            data_serialized = pickle.dumps(data)
+            return data_serialized
         else:
             return "Request Failed"
     except Exception as e:

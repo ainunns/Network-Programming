@@ -9,45 +9,58 @@ from unittest.mock import patch, MagicMock
 
 def start_http_server():
     # Create running server process
-    ?  
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # only one client at a time
+    server_socket.bind(('localhost', 8080))
+    server_socket.listen(1)
 
 
     try:
         while True:
             # Accept client connection
-            ?
+            client_socket, client_address = server_socket.accept()
 
             # Get request header and find accept_encoding
-            ?
+            request_header = client_socket.recv(4096)
+            header_str = request_header.decode('utf-8')
+            request_file = header_str.split(' ')[1]
+            if 'Accept-Encoding: ' in header_str:
+                accept_encoding = header_str.split('Accept-Encoding: ')[1]
+            else:
+                accept_encoding = ""
 
             
             # Process if /status
             if request_file == '/status':
                 # json to be sent
-                ?
+                json_data = json.dumps({"name": "myServer", "status": "online"}).encode('utf-8')
 
                 # If accept_encoding for zlib is used then use zlib compress for the json file
-                if ? in accept_encoding:
-                    ?
+                if "deflate" in accept_encoding:
+                    compressed_data = zlib.compress(json_data, level=9)
                     response_header = (
-                        ?
+                        "HTTP/1.1 200 OK\r\n"
+                        "Content-Type: application/json\r\n"
+                        "Content-Encoding: deflate\r\n"
+                        "Content-Length: {}\r\n"
+                        "\r\n"
                     )
+                    client_socket.sendall(response_header.format(len(compressed_data)).encode('utf-8') + compressed_data)
                 # Else no need to process the response, send it normally
                 else:
-                    ?
                     response_header = (
-                        ?
+                        "HTTP/1.1 200 OK\r\n"
+                        "Content-Type: application/json\r\n"
+                        "Content-Length: {}\r\n"
+                        "\r\n"
                     )
-
-                # Send header and the json data
-                ?
+                    client_socket.sendall(response_header.format(len(json_data)).encode('utf-8') + json_data)
 
             else:
                 # Else 404 not found
-                ?
+                    client_socket.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
 
-            ?
+            client_socket.close()
 
     except KeyboardInterrupt:
         print("\nServer shutting down...")

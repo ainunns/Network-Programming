@@ -1,5 +1,6 @@
 import socket
 import sys
+import json
 import zlib
 import unittest
 from io import StringIO
@@ -7,45 +8,72 @@ from unittest.mock import patch, MagicMock
 
 
 def extract_headers(response_bytes):
-    ?
+    """Extract HTTP headers from response bytes"""
+    # Find the end of headers (double CRLF)
+    header_end = response_bytes.find(b'\r\n\r\n')
+    if header_end == -1:
+        return ""
+    
+    # Extract headers and decode to string
+    headers_bytes = response_bytes[:header_end]
+    headers = headers_bytes.decode('utf-8')
+    return headers
+
 
 def extract_body_compressed(response_bytes):
-    ?
+    """Extract compressed body from response bytes"""
+    # Find the end of headers (double CRLF)
+    header_end = response_bytes.find(b'\r\n\r\n')
+    if header_end == -1:
+        return b''
+    
+    # Extract body (everything after headers)
+    body_bytes = response_bytes[header_end + 4:]
+    return body_bytes
+
 
 def start_http_client():
     # Connect to server through socket
-    ?
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(('localhost', 8080))
 
     # Send request
     request_header = (
-        b"GET /? HTTP/1.1\r\n"
-        b"Host: ?\r\n"
-        b"Accept-Encoding: ?\r\n"
+        b"GET /status HTTP/1.1\r\n"
+        b"Host: localhost\r\n"
+        b"Accept-Encoding: deflate\r\n"
         b"Connection: close\r\n"
         b"\r\n"
     )
-    ?
+    client_socket.send(request_header)
 
     # Read full response
     response_bytes = b''
     while True:
-        ?
+        chunk = client_socket.recv(1024)
+        if not chunk:
+            break
+        response_bytes += chunk
 
-    ?
+    client_socket.close()
 
     # Extract headers and body
-    ?
+    headers = extract_headers(response_bytes)
+    body_bytes = extract_body_compressed(response_bytes)
 
     # Check if content-encoding: deflate exists, if yes then use zlib to decompress
-    ?
+    if "Content-Encoding: deflate" in headers:
+        decompressed_body = zlib.decompress(body_bytes)
+    else:
+        decompressed_body = body_bytes
 
     # Print all the objects
     print("== HEADERS ==")
     print(headers)
     print("\n== BODY ==")
-    print(body_bytes)
+    print(repr(body_bytes))
 
-    json_data = ?
+    json_data = json.loads(decompressed_body.decode('utf-8'))
     print("\n== JSON OBJECT ==")
     print(json_data)
 

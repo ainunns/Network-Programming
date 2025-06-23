@@ -1,5 +1,12 @@
 import xml.etree.ElementTree as ET
 import socket
+import logging
+import sys
+import unittest
+from unittest.mock import patch, MagicMock
+from io import StringIO
+from datetime import datetime
+import select
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -14,61 +21,76 @@ class Message:
     @staticmethod
     def deserialize(serialized_message):
         # extract the username, text, and timestamp from the XML-serialized message
-        
-        return ?
+        message_element = ET.fromstring(serialized_message)
+        username = message_element.find('username').text
+        text = message_element.find('text').text
+        timestamp_str = message_element.find('timestamp').text
+
+        # Convert timestamp string back to datetime object
+        timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S.%f')
+
+        # Create a new Message object with the datetime object
+        message = Message(username, text, timestamp)
+        return message
 
     def serialize(self):
         # serialize the message object to an XML string
-        ?
-        return ?
+        root = ET.Element('message')
+        username_element = ET.SubElement(root, 'username')
+        username_element.text = self.username
+        text_element = ET.SubElement(root, 'text')
+        text_element.text = self.text
+        timestamp_element = ET.SubElement(root, 'timestamp')
+        timestamp_element.text = self.timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')
+        return ET.tostring(root, encoding='utf-8')
 
 def main():
     # create a server socket, bind, listen
-    server_socket = ?
-    ?
-    ?
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(('localhost', 12345))
+    server_socket.listen(5)
     server_socket.setblocking(False)
 
     # list of sockets for select.select()
-    sockets_list = ?
+    sockets_list = [server_socket]
 
-    logger.info(?)
+    logger.info("Server is running on port 12345")
 
     while True:
         # select.select() 
-        read_sockets, _, exception_sockets = ?
+        read_sockets, _, exception_sockets = select.select(sockets_list, [], sockets_list)
 
-        for notified_socket in ?:
-            if notified_socket == ?:
+        for notified_socket in read_sockets:
+            if notified_socket == server_socket:
                 # accept new connection
-                client_socket, client_address = ?
+                client_socket, client_address = server_socket.accept()
                 client_socket.setblocking(False)
 
                 # add the new client socket to the list of sockets
-                ?
-                logger.info(f"Accepted new connection from {?}")
+                sockets_list.append(client_socket)
+                logger.info(f"Accepted new connection from {client_address}")
             else:
                 try:
                     # receive message from client
-                    data = ?
+                    data = notified_socket.recv(1024)
                     if data:
-                        message = ?
+                        message = Message.deserialize(data.decode('utf-8'))
                         logger.info("Received message:")
-                        logger.info(f"Username: {?}")
-                        logger.info(f"Text: {?}")
-                        logger.info(f"Timestamp: {?}")
+                        logger.info(f"Username: {message.username}")
+                        logger.info(f"Text: {message.text}")
+                        logger.info(f"Timestamp: {message.timestamp}")
                 except Exception as e:
                     logger.info(f"Exception: {e}")
                     # remove the socket that's broken
-                    ?
+                    sockets_list.remove(notified_socket)
                     # close the connection
-                    ?)
+                    notified_socket.close()
 
         for notified_socket in exception_sockets:
             # remove the socket
-            ?
+            sockets_list.remove(notified_socket)
             # close the connection
-            ?
+            notified_socket.close()
 
 # A 'null' stream that discards anything written to it
 class NullWriter(StringIO):

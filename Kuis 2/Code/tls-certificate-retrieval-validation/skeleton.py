@@ -3,7 +3,7 @@ import ssl
 import unittest
 from unittest.mock import patch, MagicMock
 from io import StringIO
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Target server to test SSL connection
 test_hostname = 'www.python.org'
@@ -12,7 +12,7 @@ test_port = 443
 # Establish an SSL connection and retrieve peer certificate
 def get_ssl_certificate(hostname, port):
     context = ssl.create_default_context()
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    with socket.create_connection((hostname, port)) as sock:
         with context.wrap_socket(sock, server_hostname=hostname) as ssock:
             cert = ssock.getpeercert(False)
             return cert
@@ -22,8 +22,8 @@ def is_cert_valid(cert):
     notAfter = cert.get("notAfter")
     if notAfter is None:
         return False
-    expire_date = datetime.strptime(notAfter, '%b %d %H:%M:%S %Y %Z')
-    return datetime.utcnow() < expire_date
+    expire_date = datetime.strptime(notAfter, '%b %d %H:%M:%S %Y %Z').replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) < expire_date
 
 # Extract commonName (CN) from certificate subject
 def get_common_name(cert):

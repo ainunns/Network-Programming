@@ -1,44 +1,56 @@
-import ?
+import xml.etree.ElementTree as ET
+from datetime import datetime
+import socket
+import sys
+import unittest
+from unittest.mock import patch, MagicMock
+from io import StringIO
+
 
 class Message:
-    def __init__(self, ?, ?):
-        self.username = ?
-        self.text = ?
-        self.timestamp = ?
+    def __init__(self, username, text):
+        self.username = username
+        self.text = text
+        self.timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
 
     def serialize(self):
         # you can use xml.etree.ElementTree module
+        root = ET.Element('message')
+        username_element = ET.SubElement(root, 'username')
+        username_element.text = self.username
+        text_element = ET.SubElement(root, 'text')
+        text_element.text = self.text
+        timestamp_element = ET.SubElement(root, 'timestamp')
+        timestamp_element.text = self.timestamp
         
-        
-        return ?
+        return ET.tostring(root, encoding='utf-8').decode('utf-8')
 
     @staticmethod
     def deserialize(serialized_message):
         # extract the username, text, and timestamp from the XML-serialized message
-        message_element = ?
-        username = ?
-        text = ?
-        timestamp = ?
+        message_element = ET.fromstring(serialized_message)
+        username = message_element.find('username').text
+        text = message_element.find('text').text
+        timestamp = message_element.find('timestamp').text
 
         # create a new Message object with the extracted data
-        message = ?
+        message = Message(username, text)
 
-        return ?
+        return message
 
 def main():
-    username = input(?)
-    text = input(?)
+    username = input("Enter your username: ")
+    text = input("Enter your message: ")
 
-    message = ?
-    serialized_message = ?
+    message = Message(username, text)
+    serialized_message = message.serialize()
 
-    with (create socket here) as s:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         # connect to the server 
-        ?
+        s.connect(('localhost', 12345))
 
         # send the serialized message to the server
-        ?
-        print(?)
+        s.sendall(serialized_message.encode('utf-8'))
 
 # A 'null' stream that discards anything written to it
 class NullWriter(StringIO):
